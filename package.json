@@ -1,0 +1,24 @@
+{
+  "name": "cookiebliss",
+  "version": "1.0.0",
+  "description": "CookieBliss is a simple commercial website for selling homemade cookies.\r The project is built as a real client product while applying university-level web development skills.",
+  "main": "index.js",
+  "scripts": {
+  "start": "node server.js"
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FeatureDev/CookieBliss.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/FeatureDev/CookieBliss/issues"
+  },
+  "homepage": "https://github.com/FeatureDev/CookieBliss#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
