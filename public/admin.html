@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - CookieBliss</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="navbar">
+    <h1 class="logo">CookieBliss Admin</h1>
+    <nav>
+      <a href="/">Back to Home</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="admin-container">
+
+      <div class="admin-header">
+        <h1>Order Management</h1>
+        <button class="btn-refresh" onclick="loadOrders()">↻ Refresh</button>
+      </div>
+
+      <div id="loadingMessage" class="loading" style="display: none;">Loading orders...</div>
+
+      <div id="ordersContainer">
+        <table class="orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Customer</th>
+              <th>Phone</th>
+              <th>Items</th>
+              <th>Notes</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTableBody">
+            <!-- Populated by JavaScript -->
+          </tbody>
+        </table>
+        <div id="emptyState" class="empty-state" style="display: none;">
+          <p>No orders found</p>
+          <p style="font-size: 14px; color: #bbb;">Orders will appear here when customers place them</p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2026 CookieBliss. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Initialize admin protection
+    function protectAdminPage() {
+      const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+      if (!isAdmin) {
+        // Redirect to home if not admin
+        window.location.href = '/';
+      }
+    }
+
+    // Check admin status on page load
+    document.addEventListener('DOMContentLoaded', protectAdminPage);
+
+    let orders = [];
+
+    // Load all orders from backend
+    async function loadOrders() {
+      const loadingMsg = document.getElementById("loadingMessage");
+      const tableBody = document.getElementById("ordersTableBody");
+      const emptyState = document.getElementById("emptyState");
+
+      loadingMsg.style.display = "block";
+      tableBody.innerHTML = "";
+      emptyState.style.display = "none";
+
+      try {
+        const response = await fetch("/api/orders");
+        if (!response.ok) {
+          throw new Error("Failed to load orders");
+        }
+
+        orders = await response.json();
+        loadingMsg.style.display = "none";
+
+        if (orders.length === 0) {
+          emptyState.style.display = "block";
+          return;
+        }
+
+        // Populate table
+        orders.forEach(order => {
+          const row = document.createElement("tr");
+          const itemsList = order.items
+            .map(item => `<strong>${item.name}</strong> (${item.price} SEK)`)
+            .join("<br/>");
+
+          const createdDate = new Date(order.created_at).toLocaleDateString('en-SE', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+
+          row.innerHTML = `
+            <td class="order-id">#${order.id}</td>
+            <td>${escapeHtml(order.customer_name)}</td>
+            <td>${escapeHtml(order.phone)}</td>
+            <td class="order-items">${itemsList}</td>
+            <td>${order.notes ? escapeHtml(order.notes) : '-'}</td>
+            <td>
+              <span class="status-badge status-${order.status}">
+                ${order.status}
+              </span>
+            </td>
+            <td>${createdDate}</td>
+            <td>
+              <select class="status-select" id="select-${order.id}" 
+                onchange="updateOrderStatus(${order.id}, this.value)">
+                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="confirmed" ${order.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
+                <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+              </select>
+            </td>
+          `;
+          tableBody.appendChild(row);
+        });
+      } catch (error) {
+        console.error("Error loading orders:", error);
+        loadingMsg.style.display = "none";
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px; color: #c62828;">
+              Error loading orders. Please try again.
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    // Update order status
+    async function updateOrderStatus(orderId, newStatus) {
+      const selectElement = document.getElementById(`select-${orderId}`);
+      selectElement.disabled = true;
+
+      try {
+        const response = await fetch(`/api/orders/${orderId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update status");
+        }
+
+        // Show success feedback (optional toast)
+        showStatusMessage(`Order #${orderId} status updated to ${newStatus}`, "success");
+
+        // Reload to ensure consistency
+        loadOrders();
+      } catch (error) {
+        console.error("Error updating order:", error);
+        showStatusMessage(`Failed to update order #${orderId}`, "error");
+        selectElement.disabled = false;
+        loadOrders(); // Reload to revert the UI
+      }
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+      if (!text) return "";
+      const map = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    // Show status message
+    function showStatusMessage(message, type) {
+      // This is a simple approach; consider adding a toast notification library for better UX
+      const messageDiv = document.createElement("div");
+      messageDiv.className = `form-message ${type}`;
+      messageDiv.textContent = message;
+      messageDiv.style.position = "fixed";
+      messageDiv.style.top = "20px";
+      messageDiv.style.right = "20px";
+      messageDiv.style.zIndex = "2000";
+      messageDiv.style.maxWidth = "300px";
+      document.body.appendChild(messageDiv);
+
+      setTimeout(() => {
+        messageDiv.remove();
+      }, 3000);
+    }
+
+    // Load orders on page load
+    document.addEventListener("DOMContentLoaded", loadOrders);
+
+    // Auto-refresh orders every 30 seconds
+    setInterval(loadOrders, 30000);
+  </script>
+
+</body>
+</html>

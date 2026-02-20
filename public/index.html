@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CookieBliss</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="navbar">
+    <div class="navbar-brand">
+      <img src="images/logo.jpg" alt="CookieBliss logo" class="navbar-logo">
+      <h1 class="logo">CookieBliss</h1>
+    </div>
+    <nav>
+      <a href="/">Home</a>
+      <a href="#products">Products</a>
+      <a href="#contact">Contact</a>
+      <a href="/admin" class="admin-link" id="adminLink" style="display: none;">Admin</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <section class="hero">
+      <img src="images/logo.jpg" alt="CookieBliss logo" class="hero-bg-image">
+      <h2>Luxury Handmade Cookies</h2>
+      <p>Delicious cookies crafted with passion and premium ingredients.</p>
+      <button class="btn-order-now" onclick="openOrderForm()">Order Now</button>
+    </section>
+
+    <section class="products" id="products">
+      <h3>Best Sellers</h3>
+
+      <article class="product-card">
+        <figure>
+          <img src="https://via.placeholder.com/300x200" alt="Chocolate Chip Cookie">
+          <figcaption>Chocolate Chip</figcaption>
+        </figure>
+        <p class="price">SEK 25</p>
+      </article>
+
+      <article class="product-card">
+        <figure>
+          <img src="https://via.placeholder.com/300x200" alt="Red Velvet Cookie">
+          <figcaption>Red Velvet</figcaption>
+        </figure>
+        <p class="price">SEK 30</p>
+      </article>
+
+      <article class="product-card">
+        <figure>
+          <img src="https://via.placeholder.com/300x200" alt="Vanilla Almond Cookie">
+          <figcaption>Vanilla Almond</figcaption>
+        </figure>
+        <p class="price">SEK 28</p>
+      </article>
+
+    </section>
+
+  </main>
+
+  <!-- Order Modal -->
+  <div id="orderModal" class="modal hidden">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closeOrderForm()">&times;</button>
+      <h2>Place Your Order</h2>
+      
+      <form id="orderForm" onsubmit="submitOrder(event)">
+        <div class="form-group">
+          <label for="name">Name *</label>
+          <input type="text" id="name" name="name" required>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone *</label>
+          <input type="tel" id="phone" name="phone" required>
+        </div>
+
+        <div class="form-group">
+          <label>Select Items *</label>
+          <div id="itemsCheckbox" class="items-grid"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="notes">Special Instructions</label>
+          <textarea id="notes" name="notes" rows="3" placeholder="e.g., nut allergy, dietary restrictions"></textarea>
+        </div>
+
+        <div id="formMessage" class="form-message hidden"></div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-submit">Submit Order</button>
+          <button type="button" class="btn-cancel" onclick="closeOrderForm()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer id="contact">
+    <p>© 2026 CookieBliss. All rights reserved.</p>
+    <p>Contact: info@cookiebliss.com | Phone: +46 123 456 789</p>
+  </footer>
+
+  <script>
+    // Initialize admin visibility on page load
+    function initializeAdminLink() {
+      const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+      const adminLink = document.getElementById('adminLink');
+      adminLink.style.display = isAdmin ? 'inline-block' : 'none';
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', initializeAdminLink);
+
+    // Test function: toggle admin mode (for development)
+    // Usage in browser console: toggleAdminMode()
+    function toggleAdminMode() {
+      const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
+      const newState = !isAdmin;
+      sessionStorage.setItem('isAdmin', newState);
+      initializeAdminLink();
+      console.log(`Admin mode: ${newState ? 'ON' : 'OFF'}`);
+    }
+
+    // Load products and populate checkboxes
+    async function loadProducts() {
+      try {
+        const response = await fetch("/api/products");
+        const products = await response.json();
+        const itemsContainer = document.getElementById("itemsCheckbox");
+        itemsContainer.innerHTML = ""; // Clear previous items
+        
+        products.forEach(product => {
+          const label = document.createElement("label");
+          label.className = "item-label";
+          
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.value = product.id;
+          checkbox.dataset.name = product.name;
+          checkbox.dataset.price = product.price;
+          
+          label.appendChild(checkbox);
+          label.appendChild(document.createTextNode(` ${product.name} (${product.price} SEK)`));
+          itemsContainer.appendChild(label);
+        });
+      } catch (error) {
+        console.error("Error loading products:", error);
+        showFormMessage("Failed to load products", "error");
+      }
+    }
+
+    // Open order form
+    function openOrderForm() {
+      document.getElementById("orderModal").classList.remove("hidden");
+      document.getElementById("orderForm").reset();
+      document.getElementById("formMessage").classList.add("hidden");
+      loadProducts();
+    }
+
+    // Close order form
+    function closeOrderForm() {
+      document.getElementById("orderModal").classList.add("hidden");
+    }
+
+    // Submit order
+    async function submitOrder(event) {
+      event.preventDefault();
+      
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const notes = document.getElementById("notes").value.trim();
+      
+      // Validate inputs
+      if (!name || !phone) {
+        showFormMessage("Please fill in all required fields", "error");
+        return;
+      }
+      
+      // Get selected items
+      const checkboxes = document.querySelectorAll("#itemsCheckbox input[type='checkbox']:checked");
+      if (checkboxes.length === 0) {
+        showFormMessage("Please select at least one item", "error");
+        return;
+      }
+      
+      const items = Array.from(checkboxes).map(cb => ({
+        id: parseInt(cb.value),
+        name: cb.dataset.name,
+        price: parseInt(cb.dataset.price)
+      }));
+
+      try {
+        const response = await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, phone, items, notes })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          showFormMessage("✓ Order submitted successfully! We'll contact you soon.", "success");
+          setTimeout(() => closeOrderForm(), 2000);
+        } else {
+          showFormMessage(result.error || "Failed to submit order", "error");
+        }
+      } catch (error) {
+        showFormMessage("Error submitting order. Please try again.", "error");
+        console.error("Error:", error);
+      }
+    }
+
+    // Show form message
+    function showFormMessage(message, type) {
+      const messageDiv = document.getElementById("formMessage");
+      messageDiv.textContent = message;
+      messageDiv.className = `form-message ${type}`;
+    }
+
+    // Close modal when clicking outside
+    document.addEventListener("click", (event) => {
+      const modal = document.getElementById("orderModal");
+      if (event.target === modal) {
+        closeOrderForm();
+      }
+    });
+  </script>
+
+</body>
+</html>
