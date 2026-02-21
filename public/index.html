@@ -17,7 +17,12 @@
       <a href="/">Home</a>
       <a href="#products">Products</a>
       <a href="#contact">Contact</a>
-      <a href="/admin" class="admin-link" id="adminLink" style="display: none;">Admin</a>
+      <!-- Auth links: visible based on login status -->
+      <a href="/login.html" id="loginLink">Login</a>
+      <a href="/register.html" id="registerLink">Register</a>
+      <button id="logoutBtn" class="btn-logout" style="display: none;">Logout</button>
+      <!-- Admin link: visible only if logged in with admin role -->
+      <a href="/admin.html" class="admin-link" id="adminLink" style="display: none;">Admin</a>
     </nav>
   </header>
 
@@ -227,6 +232,60 @@
         closeOrderForm();
       }
     });
+
+    // Authentication UI Logic
+    // Update navbar based on login status
+    function updateAuthUI() {
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      
+      const loginLink = document.getElementById('loginLink');
+      const registerLink = document.getElementById('registerLink');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const adminLink = document.getElementById('adminLink');
+
+      if (!token || !userStr) {
+        // Not logged in: show login/register, hide logout and admin
+        loginLink.style.display = 'inline-block';
+        registerLink.style.display = 'inline-block';
+        logoutBtn.style.display = 'none';
+        adminLink.style.display = 'none';
+      } else {
+        // Logged in: hide login/register, show logout
+        loginLink.style.display = 'none';
+        registerLink.style.display = 'none';
+        logoutBtn.style.display = 'inline-block';
+
+        // Show admin link only if user is admin
+        try {
+          const user = JSON.parse(userStr);
+          adminLink.style.display = user.role === 'admin' ? 'inline-block' : 'none';
+        } catch (error) {
+          adminLink.style.display = 'none';
+        }
+      }
+    }
+
+    // Logout function
+    function handleLogout() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/';
+    }
+
+    // Initialize auth UI on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      updateAuthUI();
+
+      // Attach logout handler
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+      }
+    });
+
+    // Update UI when storage changes (in other tabs)
+    window.addEventListener('storage', updateAuthUI);
   </script>
 
 </body>
