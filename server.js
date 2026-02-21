@@ -1,6 +1,9 @@
 const express = require("express");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
+const User = require("./models/User");
+const AuthController = require("./controllers/authController");
+const { authenticateToken, authorizeRole } = require("./middleware/authMiddleware");
 
 const app = express();
 const DB_FILE = path.join(__dirname, "database", "cookie_orders.db");
@@ -9,7 +12,7 @@ const DB_FILE = path.join(__dirname, "database", "cookie_orders.db");
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Initialize SQLite database
+// Initialize database
 const db = new sqlite3.Database(DB_FILE, (err) => {
   if (err) {
     console.error("Database connection error:", err);
@@ -19,28 +22,7 @@ const db = new sqlite3.Database(DB_FILE, (err) => {
   }
 });
 
-// Initialize orders table
-function initializeDatabase() {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      customer_name TEXT NOT NULL,
-      phone TEXT NOT NULL,
-      items TEXT NOT NULL,
-      notes TEXT,
-      status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `, (err) => {
-    if (err) {
-      console.error("Error creating table:", err);
-    } else {
-      console.log("Orders table ready");
-    }
-  });
-}
-
-// Helper: Promisify db operations
+// Database helpers
 function dbRun(query, params = []) {
   return new Promise((resolve, reject) => {
     db.run(query, params, function(err) {
@@ -59,14 +41,72 @@ function dbAll(query, params = []) {
   });
 }
 
-function dbGet(query, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(query, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
+// Initialize database and seed admin
+const userModel = new User(db);
+
+async function initializeDatabase() {
+  try {
+    // Create users table
+    await userModel.initTable();
+    console.log("✓ Users table ready");
+
+    // Create orders table
+    await new Promise((resolve, reject) => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS orders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customer_name TEXT NOT NULL,
+          phone TEXT NOT NULL,
+          items TEXT NOT NULL,
+          notes TEXT,
+          status TEXT DEFAULT 'pending',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `, (err) => {
+        if (err) reject(err);
+        else {
+          console.log("✓ Orders table ready");
+          resolve();
+        }
+      });
     });
-  });
+
+    // Seed admin user if it doesn't exist
+    await seedAdmin();
+  } catch (error) {
+    console.error("Error initializing database:", error);
+  }
 }
+
+async function seedAdmin() {
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@cookiebliss.com";
+    const adminPassword = process.env.ADMIN_PASSWORD || "admin123456";
+
+    // Check if admin already exists
+    const adminExists = await userModel.findByEmail(adminEmail);
+    if (adminExists) {
+      console.log("✓ Admin user already exists");
+      return;
+    }
+
+    // Create admin user
+    const result = await userModel.create("Admin User", adminEmail, adminPassword);
+    await userModel.updateRole(result.id, "admin");
+
+    console.log("✓ Admin user created");
+    console.log(`  Email: ${adminEmail}`);
+    console.log(`  Password: ${adminPassword}`);
+  } catch (error) {
+    console.error("Error seeding admin:", error);
+  }
+}
+
+// Initialize auth routes
+const authController = new AuthController(userModel);
+
+app.post("/api/auth/register", (req, res) => authController.register(req, res));
+app.post("/api/auth/login", (req, res) => authController.login(req, res));
 
 // API: Get products
 app.get("/api/products", (req, res) => {
@@ -106,8 +146,8 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
-// API: GET /api/orders - Retrieve all orders
-app.get("/api/orders", async (req, res) => {
+// API: GET /api/orders - Retrieve all orders (admin only)
+app.get("/api/orders", authenticateToken, authorizeRole("admin"), async (req, res) => {
   try {
     const orders = await dbAll(
       "SELECT * FROM orders ORDER BY created_at DESC"
@@ -126,8 +166,8 @@ app.get("/api/orders", async (req, res) => {
   }
 });
 
-// API: PATCH /api/orders/:id - Update order status
-app.patch("/api/orders/:id", async (req, res) => {
+// API: PATCH /api/orders/:id - Update order status (admin only)
+app.patch("/api/orders/:id", authenticateToken, authorizeRole("admin"), async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
@@ -156,8 +196,8 @@ app.patch("/api/orders/:id", async (req, res) => {
   }
 });
 
-// Serve admin page
-app.get("/admin", (req, res) => {
+// Serve admin page (protected with authentication)
+app.get("/admin", authenticateToken, authorizeRole("admin"), (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
