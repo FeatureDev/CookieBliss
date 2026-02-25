@@ -17,22 +17,27 @@
       <a href="/">Home</a>
       <a href="#products">Products</a>
       <a href="#contact">Contact</a>
-      <!-- Auth links: visible based on login status -->
       <a href="/login.html" id="loginLink">Login</a>
       <a href="/register.html" id="registerLink">Register</a>
       <button id="logoutBtn" class="btn-logout" style="display: none;">Logout</button>
-      <!-- Admin link: visible only if logged in with admin role -->
       <a href="/admin.html" class="admin-link" id="adminLink" style="display: none;">Admin</a>
     </nav>
   </header>
 
   <main>
 
+    <!-- Hero Section -->
     <section class="hero">
-      <img src="images/logo.jpg" alt="CookieBliss logo" class="hero-bg-image">
-      <h2>Luxury Handmade Cookies</h2>
-      <p>Delicious cookies crafted with passion and premium ingredients.</p>
-      <button class="btn-order-now" onclick="openOrderForm()">Order Now</button>
+      <div class="hero-content">
+        <h2 class="hero-headline">Freshly Baked. Stuffed. Irresistible.</h2>
+        <p class="hero-description">
+          Discover our signature stuffed cookies made with premium ingredients and baked fresh to order.
+        </p>
+        <div class="hero-buttons">
+          <a href="#products" class="btn-primary">View Flavors</a>
+          <a href="#products" class="btn-secondary">Order Now</a>
+        </div>
+      </div>
     </section>
 
     <section class="products" id="products">
@@ -66,227 +71,25 @@
 
   </main>
 
-  <!-- Order Modal -->
-  <div id="orderModal" class="modal hidden">
-    <div class="modal-content">
-      <button class="close-btn" onclick="closeOrderForm()">&times;</button>
-      <h2>Place Your Order</h2>
-      
-      <form id="orderForm" onsubmit="submitOrder(event)">
-        <div class="form-group">
-          <label for="name">Name *</label>
-          <input type="text" id="name" name="name" required>
-        </div>
-
-        <div class="form-group">
-          <label for="phone">Phone *</label>
-          <input type="tel" id="phone" name="phone" required>
-        </div>
-
-        <div class="form-group">
-          <label>Select Items *</label>
-          <div id="itemsCheckbox" class="items-grid"></div>
-        </div>
-
-        <div class="form-group">
-          <label for="notes">Special Instructions</label>
-          <textarea id="notes" name="notes" rows="3" placeholder="e.g., nut allergy, dietary restrictions"></textarea>
-        </div>
-
-        <div id="formMessage" class="form-message hidden"></div>
-
-        <div class="form-actions">
-          <button type="submit" class="btn-submit">Submit Order</button>
-          <button type="button" class="btn-cancel" onclick="closeOrderForm()">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <footer id="contact">
-    <p>© 2026 CookieBliss. All rights reserved.</p>
-    <p>Contact: info@cookiebliss.com | Phone: +46 123 456 789</p>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3 class="footer-brand">CookieBliss</h3>
+        <p>© 2026 CookieBliss. All rights reserved.</p>
+      </div>
+      <div class="footer-section">
+        <p class="footer-label">Follow us on social media</p>
+        <div class="footer-social-links">
+          <a href="https://www.instagram.com/cookiebliss.se?igsh=MWt5aGlhOG5xbmRscA==" target="_blank" class="footer-social-link instagram">
+            <span>Instagram</span>
+          </a>
+          <a href="https://www.tiktok.com/@cookiebliss.se?_r=1&_t=ZN-94BaGvaK1u2" target="_blank" class="footer-social-link tiktok">
+            <span>TikTok</span>
+          </a>
+        </div>
+      </div>
+    </div>
   </footer>
-
-  <script>
-    // Initialize admin visibility on page load
-    function initializeAdminLink() {
-      const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-      const adminLink = document.getElementById('adminLink');
-      adminLink.style.display = isAdmin ? 'inline-block' : 'none';
-    }
-
-    // Call on page load
-    document.addEventListener('DOMContentLoaded', initializeAdminLink);
-
-    // Test function: toggle admin mode (for development)
-    // Usage in browser console: toggleAdminMode()
-    function toggleAdminMode() {
-      const isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-      const newState = !isAdmin;
-      sessionStorage.setItem('isAdmin', newState);
-      initializeAdminLink();
-      console.log(`Admin mode: ${newState ? 'ON' : 'OFF'}`);
-    }
-
-    // Load products and populate checkboxes
-    async function loadProducts() {
-      try {
-        const response = await fetch("/api/products");
-        const products = await response.json();
-        const itemsContainer = document.getElementById("itemsCheckbox");
-        itemsContainer.innerHTML = ""; // Clear previous items
-        
-        products.forEach(product => {
-          const label = document.createElement("label");
-          label.className = "item-label";
-          
-          const checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.value = product.id;
-          checkbox.dataset.name = product.name;
-          checkbox.dataset.price = product.price;
-          
-          label.appendChild(checkbox);
-          label.appendChild(document.createTextNode(` ${product.name} (${product.price} SEK)`));
-          itemsContainer.appendChild(label);
-        });
-      } catch (error) {
-        console.error("Error loading products:", error);
-        showFormMessage("Failed to load products", "error");
-      }
-    }
-
-    // Open order form
-    function openOrderForm() {
-      document.getElementById("orderModal").classList.remove("hidden");
-      document.getElementById("orderForm").reset();
-      document.getElementById("formMessage").classList.add("hidden");
-      loadProducts();
-    }
-
-    // Close order form
-    function closeOrderForm() {
-      document.getElementById("orderModal").classList.add("hidden");
-    }
-
-    // Submit order
-    async function submitOrder(event) {
-      event.preventDefault();
-      
-      const name = document.getElementById("name").value.trim();
-      const phone = document.getElementById("phone").value.trim();
-      const notes = document.getElementById("notes").value.trim();
-      
-      // Validate inputs
-      if (!name || !phone) {
-        showFormMessage("Please fill in all required fields", "error");
-        return;
-      }
-      
-      // Get selected items
-      const checkboxes = document.querySelectorAll("#itemsCheckbox input[type='checkbox']:checked");
-      if (checkboxes.length === 0) {
-        showFormMessage("Please select at least one item", "error");
-        return;
-      }
-      
-      const items = Array.from(checkboxes).map(cb => ({
-        id: parseInt(cb.value),
-        name: cb.dataset.name,
-        price: parseInt(cb.dataset.price)
-      }));
-
-      try {
-        const response = await fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, phone, items, notes })
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-          showFormMessage("✓ Order submitted successfully! We'll contact you soon.", "success");
-          setTimeout(() => closeOrderForm(), 2000);
-        } else {
-          showFormMessage(result.error || "Failed to submit order", "error");
-        }
-      } catch (error) {
-        showFormMessage("Error submitting order. Please try again.", "error");
-        console.error("Error:", error);
-      }
-    }
-
-    // Show form message
-    function showFormMessage(message, type) {
-      const messageDiv = document.getElementById("formMessage");
-      messageDiv.textContent = message;
-      messageDiv.className = `form-message ${type}`;
-    }
-
-    // Close modal when clicking outside
-    document.addEventListener("click", (event) => {
-      const modal = document.getElementById("orderModal");
-      if (event.target === modal) {
-        closeOrderForm();
-      }
-    });
-
-    // Authentication UI Logic
-    // Update navbar based on login status
-    function updateAuthUI() {
-      const token = localStorage.getItem('token');
-      const userStr = localStorage.getItem('user');
-      
-      const loginLink = document.getElementById('loginLink');
-      const registerLink = document.getElementById('registerLink');
-      const logoutBtn = document.getElementById('logoutBtn');
-      const adminLink = document.getElementById('adminLink');
-
-      if (!token || !userStr) {
-        // Not logged in: show login/register, hide logout and admin
-        loginLink.style.display = 'inline-block';
-        registerLink.style.display = 'inline-block';
-        logoutBtn.style.display = 'none';
-        adminLink.style.display = 'none';
-      } else {
-        // Logged in: hide login/register, show logout
-        loginLink.style.display = 'none';
-        registerLink.style.display = 'none';
-        logoutBtn.style.display = 'inline-block';
-
-        // Show admin link only if user is admin
-        try {
-          const user = JSON.parse(userStr);
-          adminLink.style.display = user.role === 'admin' ? 'inline-block' : 'none';
-        } catch (error) {
-          adminLink.style.display = 'none';
-        }
-      }
-    }
-
-    // Logout function
-    function handleLogout() {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/';
-    }
-
-    // Initialize auth UI on page load
-    document.addEventListener('DOMContentLoaded', () => {
-      updateAuthUI();
-
-      // Attach logout handler
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', handleLogout);
-      }
-    });
-
-    // Update UI when storage changes (in other tabs)
-    window.addEventListener('storage', updateAuthUI);
-  </script>
 
 </body>
 </html>
