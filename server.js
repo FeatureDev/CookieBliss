@@ -8,6 +8,10 @@ const { authenticateToken, authorizeRole } = require("./middleware/authMiddlewar
 const app = express();
 const DB_FILE = path.join(__dirname, "database", "cookie_orders.db");
 
+const productsRoutes = require('./routes/productsRoutes');
+
+app.use('/api/products', productsRoutes);
+
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
